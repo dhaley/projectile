@@ -398,6 +398,7 @@ Files are returned as relative paths to the project root."
   "Determine which external command to invoke based on the project's VCS."
   (let ((vcs (projectile-project-vcs)))
     (cond
+     ((eq vcs 'drupal) projectile-git-command)
      ((eq vcs 'git) projectile-git-command)
      ((eq vcs 'hg) projectile-hg-command)
      ((eq vcs 'fossil) projectile-fossil-command)
@@ -704,6 +705,7 @@ With a prefix ARG invalidates the cache first."
 (defvar projectile-rails-rspec '("Gemfile" "app" "lib" "db" "config" "spec"))
 (defvar projectile-rails-test '("Gemfile" "app" "lib" "db" "config" "test"))
 (defvar projectile-symfony '("composer.json" "app" "src" "vendor"))
+(defvar projectile-drupal '("includes/bootstrap.inc" "includes/common.inc" "misc/drupal.js"))
 (defvar projectile-ruby-rspec '("Gemfile" "lib" "spec"))
 (defvar projectile-ruby-test '("Gemfile" "lib" "test"))
 (defvar projectile-maven '("pom.xml"))
@@ -720,6 +722,7 @@ With a prefix ARG invalidates the cache first."
      ((projectile-verify-files projectile-ruby-rspec) 'ruby-rspec)
      ((projectile-verify-files projectile-ruby-test) 'ruby-test)
      ((projectile-verify-files projectile-symfony) 'symfony)
+     ((projectile-verify-files projectile-drupal) 'drupal)
      ((projectile-verify-files projectile-maven) 'maven)
      ((projectile-verify-files projectile-lein) 'lein)
      ((projectile-verify-files projectile-rebar) 'rebar)
@@ -738,12 +741,14 @@ With a prefix ARG invalidates the cache first."
   "Determine the VCS used by the project if any."
   (let ((project-root (projectile-project-root)))
    (cond
+    ((file-exists-p (expand-file-name "includes/bootstrap.inc" project-root)) 'drupal)
     ((file-exists-p (expand-file-name ".git" project-root)) 'git)
     ((file-exists-p (expand-file-name ".hg" project-root)) 'hg)
     ((file-exists-p (expand-file-name ".fossil" project-root)) 'fossil)
     ((file-exists-p (expand-file-name ".bzr" project-root)) 'bzr)
     ((file-exists-p (expand-file-name "_darcs" project-root)) 'darcs)
     ((file-exists-p (expand-file-name ".svn" project-root)) 'svn)
+    ((locate-dominating-file project-root "includes/bootstrap.inc") 'drupal)
     ((locate-dominating-file project-root ".git") 'git)
     ((locate-dominating-file project-root ".hg") 'hg)
     ((locate-dominating-file project-root ".fossil") 'fossil)
