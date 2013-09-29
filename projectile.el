@@ -848,16 +848,26 @@ With a prefix ARG invalidates the cache first."
     (shell-command (format projectile-tags-command tags-exclude project-root))
     (visit-tags-table project-root)))
 
-(defun projectile-replace ()
-  "Replace a string in the project using `tags-query-replace'."
-  (interactive)
+(defun projectile-files-in-project-directory (directory)
+  "Return a list of files in DIRECTORY."
+  (let ((dir (s-chop-prefix (projectile-project-root) (expand-file-name directory))))
+    (-filter (lambda (file) (s-starts-with-p dir file))
+             (projectile-current-project-files))))
+
+(defun projectile-replace (arg)
+  "Replace a string in the project using `tags-query-replace'.
+
+With a prefix argument ARG prompts you for a directory on which to run the replacement."
+  (interactive "P")
   (let* ((old-text (read-string
                     (projectile-prepend-project-name "Replace: ")
                     (projectile-symbol-at-point)))
         (new-text (read-string
                    (projectile-prepend-project-name
                     (format "Replace %s with: " old-text)))))
-    (tags-query-replace old-text new-text nil '(-map 'projectile-expand-root (projectile-current-project-files)))))
+    (if arg
+        (tags-query-replace old-text new-text nil '(-map 'projectile-expand-root (projectile-files-in-project-directory (read-directory-name "Replace in directory: "))))
+      (tags-query-replace old-text new-text nil '(-map 'projectile-expand-root (projectile-current-project-files))))))
 
 (defun projectile-symbol-at-point ()
   "Get the symbol at point and strip its properties."
@@ -982,12 +992,19 @@ with a prefix ARG."
     (puthash project-root test-cmd projectile-test-cmd-map)
     (compilation-start test-cmd)))
 
+(defun projectile-relevant-known-projects ()
+  "Return a list of known projects except the current one (if present)."
+  (if (projectile-project-p)
+      (-difference projectile-known-projects
+                   (list (abbreviate-file-name (projectile-project-root))))
+    projectile-known-projects))
+
 (defun projectile-switch-project ()
   "Switch to a project we have seen before."
   (interactive)
   (let* ((project-to-switch
          (projectile-completing-read "Switch to project: "
-                                     projectile-known-projects))
+                                     (projectile-relevant-known-projects)))
          (default-directory project-to-switch))
     (funcall projectile-switch-project-action)
     (let ((project-switched project-to-switch))
