@@ -123,6 +123,7 @@ Otherwise consider the current directory the project root."
     "project.clj"    ; Leiningen project file
     "pom.xml"        ; Maven project file
     "build.sbt"      ; SBT project file
+    "build.gradle"   ; Gradle project file
     "Gemfile"        ; Bundler file
     "Makefile"       ; Make project file
     )
@@ -302,17 +303,17 @@ The current directory is assumed to be the project's root otherwise."
                (--map (locate-dominating-file default-directory it))
                (-remove #'null)
                (car)
-               (projectile-expand-file-name))
+               (projectile-file-truename))
              (if projectile-require-project-root
                  (error "You're not into a project")
                default-directory))))
     project-root))
 
-(defun projectile-expand-file-name (file-name)
+(defun projectile-file-truename (file-name)
   "A thin wrapper around `expand-file-name' that handles nil.
 Expand FILE-NAME using `default-directory'."
   (when file-name
-    (expand-file-name file-name)))
+    (file-truename file-name)))
 
 (defun projectile-project-p ()
   "Check if we're in a project."
@@ -381,7 +382,7 @@ Files are returned as relative paths to the project root."
   :group 'projectile
   :type 'string)
 
-(defcustom projectile-bzr-command "bzr ls --versioned -0"
+(defcustom projectile-bzr-command "bzr ls -R --versioned -0"
   "Command used by projectile to get the files in a bazaar project."
   :group 'projectile
   :type 'string)
@@ -475,7 +476,7 @@ Operates on filenames relative to the project root."
   "Check if BUFFER is under PROJECT-ROOT."
   (with-current-buffer buffer
     (and (s-starts-with? project-root
-                         (expand-file-name default-directory))
+                         (file-truename default-directory))
          ;; ignore hidden buffers
          (not (s-starts-with? " " (buffer-name buffer))))))
 
@@ -865,10 +866,12 @@ With a prefix argument ARG prompts you for a directory on which to run the repla
                     (projectile-symbol-at-point)))
         (new-text (read-string
                    (projectile-prepend-project-name
-                    (format "Replace %s with: " old-text)))))
-    (if arg
-        (tags-query-replace old-text new-text nil '(-map 'projectile-expand-root (projectile-files-in-project-directory (read-directory-name "Replace in directory: "))))
-      (tags-query-replace old-text new-text nil '(-map 'projectile-expand-root (projectile-current-project-files))))))
+                    (format "Replace %s with: " old-text))))
+        (files (if arg
+                   (-map 'projectile-expand-root (projectile-files-in-project-directory (read-directory-name "Replace in directory: ")))
+                 (-map 'projectile-expand-root (projectile-current-project-files)))))
+    ;; we have to reject directories as a workaround to work with git submodules
+    (tags-query-replace old-text new-text nil '(-reject 'file-directory-p files))))
 
 (defun projectile-symbol-at-point ()
   "Get the symbol at point and strip its properties."
