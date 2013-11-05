@@ -138,6 +138,9 @@ be added to the cache automatically the first time you open them.
 
 The project cache is persistent and will be preserved during Emacs restarts.
 
+You can purge an individual file from the cache with `M-x projectile-purge-file-from-cache` or an
+entire directory with `M-x projectile-purge-dir-from-cache`.
+
 #### Using Projectile everywhere
 
 If you want Projectile to be usable in every directory (even without the presence of project file):
@@ -231,6 +234,7 @@ Keybinding         | Description
 <kbd>C-c p D</kbd> | Opens the root of the project in `dired`.
 <kbd>C-c p e</kbd> | Shows a list of recently visited project files.
 <kbd>C-c p a</kbd> | Runs `ack` on the project. Requires the presence of `ack-and-a-half`.
+<kbd>C-c p A</kbd> | Runs `ag` on the project. Requires the presence of `ag.el`.
 <kbd>C-c p c</kbd> | Runs a standard compilation command for your type of project.
 <kbd>C-c p p</kbd> | Runs a standard test command for your type of project.
 <kbd>C-c p z</kbd> | Adds the currently visited to the cache.
