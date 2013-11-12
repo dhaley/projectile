@@ -146,7 +146,8 @@ Otherwise consider the current directory the project root."
     ".fslckout"
     ".bzr"
     "_darcs"
-    "venv")
+    "venv"
+    "build")
   "A list of directories globally ignored by projectile."
   :group 'projectile
   :type '(repeat string))
@@ -298,7 +299,7 @@ The cache is created both in memory and on the hard drive."
   (interactive)
   (let* ((current-project (projectile-project-root))
          (abs-current-file (buffer-file-name (current-buffer)))
-         (current-file (file-relative-name abs-current-file)))
+         (current-file (file-relative-name abs-current-file current-project)))
     (unless (or (projectile-file-cached-p current-file current-project)
                 (projectile-ignored-directory-p (file-name-directory abs-current-file)))
       (puthash current-project
@@ -725,6 +726,11 @@ With a prefix ARG invalidates the cache first."
                                           (projectile-current-project-test-files))))
     (find-file (expand-file-name file (projectile-project-root)))))
 
+(defcustom projectile-test-files-prefixes '("test_")
+  "Some common prefixes of test files."
+  :group 'projectile
+  :type '(repeat string))
+
 (defcustom projectile-test-files-suffices '("_test" "_spec" "Test" "-test")
   "Some common suffices of test files."
   :group 'projectile
@@ -736,9 +742,12 @@ With a prefix ARG invalidates the cache first."
 
 (defun projectile-test-file-p (file)
   "Check if FILE is a test file."
-  (-any? (lambda (suffix)
-           (s-ends-with? suffix (file-name-sans-extension file)))
-         projectile-test-files-suffices))
+  (or (-any? (lambda (prefix)
+               (s-starts-with? prefix (file-name-nondirectory file)))
+              projectile-test-files-prefixes)
+      (-any? (lambda (suffix)
+               (s-ends-with? suffix (file-name-sans-extension file)))
+              projectile-test-files-suffices)))
 
 (defun projectile-current-project-test-files ()
   "Return a list of test files for the current project."
@@ -820,32 +829,42 @@ With a prefix ARG invalidates the cache first."
           (find-file (projectile-expand-root test-file))
         (error "No matching test file found")))))
 
+(defun projectile-test-prefix (project-type)
+  "Find test files prefix based on PROJECT-TYPE."
+  (cond
+   ((member project-type '(django python)) "test_")))
+
 (defun projectile-test-suffix (project-type)
   "Find test files suffix based on PROJECT-TYPE."
   (cond
    ((member project-type '(rails-rspec ruby-rspec)) "_spec")
    ((member project-type '(rails-test ruby-test lein)) "_test")
-   ((member project-type '(maven symfony)) "Test")
-   (t (error "Project type not supported!"))))
+   ((member project-type '(maven symfony)) "Test")))
 
 (defun projectile-find-matching-test (file)
   "Compute the name of the test matching FILE."
   (let ((basename (file-name-nondirectory (file-name-sans-extension file)))
         (extension (file-name-extension file))
-        (test-suffix (projectile-test-suffix (projectile-project-type))))
+        (test-affix (or (projectile-test-prefix (projectile-project-type))
+                        (projectile-test-suffix (projectile-project-type))
+                        (error "Project type not supported!"))))
       (-first (lambda (current-file)
-                (s-equals? (file-name-nondirectory (file-name-sans-extension current-file))
-                           (concat basename test-suffix)))
+                (let ((current-file-basename (file-name-nondirectory (file-name-sans-extension current-file))))
+                  (or (s-equals? current-file-basename (concat test-affix basename))
+                      (s-equals? current-file-basename (concat basename test-affix)))))
               (projectile-current-project-files))))
 
 (defun projectile-find-matching-file (test-file)
   "Compute the name of a file matching TEST-FILE."
   (let ((basename (file-name-nondirectory (file-name-sans-extension test-file)))
         (extension (file-name-extension test-file))
-        (test-suffix (projectile-test-suffix (projectile-project-type))))
+        (test-affix (or (projectile-test-prefix (projectile-project-type))
+                        (projectile-test-suffix (projectile-project-type))
+                        (error "Project type not supported!"))))
     (-first (lambda (current-file)
-              (s-equals? (concat (file-name-nondirectory (file-name-sans-extension current-file)) test-suffix)
-                         basename))
+              (let ((current-file-basename (file-name-nondirectory (file-name-sans-extension current-file))))
+                (or (s-equals? (concat test-affix current-file-basename) basename)
+                    (s-equals? (concat current-file-basename test-affix) basename))))
             (projectile-current-project-files))))
 
 (defun projectile-grep ()
@@ -971,7 +990,7 @@ With a prefix argument ARG prompts you for a directory on which to run the repla
 (defvar projectile-django-compile-cmd "venv/bin/python manage.py runserver")
 (defvar projectile-django-test-cmd "venv/bin/python manage.py test")
 (defvar projectile-python-compile-cmd "venv/bin/python setup.py build")
-(defvar projectile-python-test-cmd "venv/bin/python setup.py test")
+(defvar projectile-python-test-cmd "venv/bin/python -m unittest discover")
 (defvar projectile-symfony-compile-cmd "app/console server:run")
 (defvar projectile-symfony-test-cmd "phpunit -c app ")
 (defvar projectile-drupal-compile-cmd "tail /var/log/drupal.log")
@@ -1196,10 +1215,27 @@ Also set `projectile-known-projects'."
 (define-minor-mode projectile-mode
   "Minor mode to assist project management and navigation.
 
+When called interactively, toggle `projectile-mode'.  With prefix
+ARG, enable `projectile-mode' if ARG is positive, otherwise disable
+it.
+
+When called from Lisp, enable `projectile-mode' if ARG is omitted,
+nil or positive.  If ARG is `toggle', toggle `projectile-mode'.
+Otherwise behave as if called interactively.
+
 \\{projectile-mode-map}"
   :lighter " Projectile"
   :keymap projectile-mode-map
-  :group 'projectile)
+  :group 'projectile
+  :require 'projectile
+  (cond
+   (projectile-mode
+    (add-hook 'find-file-hook 'projectile-cache-files-find-file-hook)
+    (add-hook 'find-file-hook 'projectile-cache-projects-find-file-hook)
+    (add-hook 'projectile-find-dir-hook 'projectile-cache-projects-find-file-hook))
+   (t
+    (remove-hook 'find-file-hook 'projectile-cache-files-find-file-hook)
+    (remove-hook 'find-file-hook 'projectile-cache-projects-find-file-hook))))
 
 ;;;###autoload
 (define-globalized-minor-mode projectile-global-mode
@@ -1216,20 +1252,11 @@ Also set `projectile-known-projects'."
 
 (defun projectile-global-on ()
   "Enable Projectile global minor mode."
-  (add-hook 'find-file-hook 'projectile-cache-files-find-file-hook)
-  (add-hook 'find-file-hook 'projectile-cache-projects-find-file-hook)
-  (add-hook 'projectile-find-dir-hook 'projectile-cache-projects-find-file-hook))
+  (projectile-global-mode +1))
 
 (defun projectile-global-off ()
   "Disable Projectile global minor mode."
-  (remove-hook 'find-file-hook 'projectile-cache-files-find-file-hook)
-  (remove-hook 'find-file-hook 'projectile-cache-projects-find-file-hook))
-
-(defadvice projectile-global-mode (after projectile-setup-hooks activate)
-  "Add/remove `find-file-hook' functions within `projectile-global-mode'."
-  (if projectile-global-mode
-      (projectile-global-on)
-    (projectile-global-off)))
+  (projectile-global-mode -1))
 
 (provide 'projectile)
 
