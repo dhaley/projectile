@@ -68,7 +68,8 @@
     (keymap . ,helm-generic-files-map)
     (help-message . helm-find-file-help-message)
     (mode-line . helm-ff-mode-line-string)
-    (type . file))
+    (type . file)
+    (action . (lambda (file) (find-file file))))
   "Helm source definition.")
 
 (defvar helm-source-projectile-buffers-list
@@ -110,18 +111,20 @@
     (keymap . ,helm-generic-files-map)
     (help-message . helm-find-file-help-message)
     (mode-line . helm-ff-mode-line-string)
-    (type . file))
+    (type . file)
+    (action . (lambda (file) (find-file file))))
   "Helm source definition.")
 
 ;;;###autoload
 (defun helm-projectile ()
   "Use projectile with Helm instead of ido."
   (interactive)
-  (helm :sources '(helm-source-projectile-files-list
-                   helm-source-projectile-buffers-list
-                   helm-source-projectile-recentf-list)
-        :buffer "*helm projectile*"
-        :prompt (projectile-prepend-project-name "pattern: ")))
+  (let ((helm-ff-transformer-show-only-basename nil))
+    (helm :sources '(helm-source-projectile-files-list
+                     helm-source-projectile-buffers-list
+                     helm-source-projectile-recentf-list)
+          :buffer "*helm projectile*"
+          :prompt (projectile-prepend-project-name "pattern: "))))
 
 ;;;###autoload
 (eval-after-load 'projectile

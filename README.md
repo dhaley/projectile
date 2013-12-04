@@ -146,12 +146,44 @@ This might not be a great idea if you start Projectile in your home folder for i
 #### Switching projects
 
 When running `projectile-switch-project` (<kbd>C-c p s</kbd>) Projectile invokes the command specified in
-`projectile-switch-project-action` (by default it's `projectile-find-file`). If you want to use something else alter the value of
-`projectile-switch-project-action`:
+`projectile-switch-project-action` (by default it is `projectile-find-file`).
+Depending on your personal workflow and habits, you may prefer to
+alter the value of `projectile-switch-project-action`:
+
+###### `projectile-find-file`
+
+This is the default.  With this setting, once you have selected your
+project via Projectile's completion system (see below), you will
+remain in the completion system to select a file to visit.
+
+###### `projectile-dired`
 
 ```lisp
 (setq projectile-switch-project-action 'projectile-dired)
 ```
+
+With this setting, once you have selected your project, the top-level
+directory of the project is immediately opened for you in a dired
+buffer.
+
+###### `projectile-find-dir`
+
+```lisp
+(setq projectile-switch-project-action 'projectile-find-dir)
+```
+
+With this setting, once you have selected your project, you will
+remain in Projectile's completion system to select a sub-directory of
+your project, and then *that* sub-directory is opened for you in a
+dired buffer.  If you use this setting, then you will probably also
+want to set
+
+```lisp
+(setq projectile-find-dir-includes-top-level t)
+```
+
+in order to allow for the occasions where you want to select the
+top-level directory.
 
 #### Completion Options
 
@@ -206,6 +238,13 @@ the file name (not including path) and if the file selected is not
 unique, another completion with names relative to project root
 appears.
 
+##### Regenerate tags
+
+To be able to regenerate a project's tags via `projectile-tags-command`, you
+should install and add to the PATH
+[Exuberant Ctags](http://ctags.sourceforge.net/) instead of a plain ctags, which
+ships with Emacs distribution.
+
 ### Interactive Commands
 
 Here's a list of the interactive Emacs Lisp functions, provided by projectile:
@@ -217,11 +256,13 @@ Keybinding         | Description
 <kbd>C-c p T</kbd> | Display a list of all test files(specs, features, etc) in the project.
 <kbd>C-c p l</kbd> | Display a list of all files in a directory (that's not necessarily a project)
 <kbd>C-c p g</kbd> | Run grep on the files in the project.
+<kbd>C-c p v</kbd> | Run `vc-dir` on the root directory of the project.
 <kbd>C-c p b</kbd> | Display a list of all project buffers currently open.
 <kbd>C-c p o</kbd> | Runs `multi-occur` on all project buffers currently open.
 <kbd>C-c p r</kbd> | Runs interactive query-replace on all files in the projects.
 <kbd>C-c p i</kbd> | Invalidates the project cache (if existing).
 <kbd>C-c p R</kbd> | Regenerates the projects `TAGS` file.
+<kbd>C-c p j</kbd> | Find tag in project's `TAGS` file.
 <kbd>C-c p k</kbd> | Kills all project buffers.
 <kbd>C-c p D</kbd> | Opens the root of the project in `dired`.
 <kbd>C-c p e</kbd> | Shows a list of recently visited project files.
@@ -229,6 +270,7 @@ Keybinding         | Description
 <kbd>C-c p A</kbd> | Runs `ag` on the project. Requires the presence of `ag.el`.
 <kbd>C-c p c</kbd> | Runs a standard compilation command for your type of project.
 <kbd>C-c p p</kbd> | Runs a standard test command for your type of project.
+<kbd>C-c p t</kbd> | Toggle between an implementation file and its test file.
 <kbd>C-c p z</kbd> | Adds the currently visited to the cache.
 <kbd>C-c p s</kbd> | Display a list of known projects you can switch to.
 
