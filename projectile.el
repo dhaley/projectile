@@ -138,7 +138,6 @@ Otherwise consider the current directory the project root."
     "build.gradle"       ; Gradle project file
     "Gemfile"            ; Bundler file
     "requirements.txt"   ; Pip file
-    "Makefile"           ; Make project file
     )
   "A list of files considered to mark the root of a project."
   :group 'projectile
@@ -346,7 +345,9 @@ The cache is created both in memory and on the hard drive."
 The current directory is assumed to be the project's root otherwise."
   (let ((project-root
          (or (->> projectile-project-root-files
-               (--map (locate-dominating-file default-directory it))
+               (--map (locate-dominating-file (file-truename
+                                               (or buffer-file-name default-directory))
+                                              it))
                (-remove #'null)
                (car)
                (projectile-file-truename))
@@ -356,8 +357,7 @@ The current directory is assumed to be the project's root otherwise."
     project-root))
 
 (defun projectile-file-truename (file-name)
-  "A thin wrapper around `expand-file-name' that handles nil.
-Expand FILE-NAME using `default-directory'."
+  "A thin wrapper around `file-truename' that handles nil."
   (when file-name
     (file-truename file-name)))
 
@@ -933,11 +933,14 @@ With a prefix ARG invalidates the cache first."
 (defun projectile-ack ()
   "Run an `ack-and-a-half' search in the project."
   (interactive)
-  (let ((ack-and-a-half-arguments
-         (-map
-          (lambda (path)
-            (concat "--ignore-dir=" (file-name-nondirectory (directory-file-name path))))
-          (projectile-ignored-directories))))
+  (let* ((saved-arguments (if (boundp 'ack-and-a-half-arguments)
+                              ack-and-a-half-arguments '()))
+         (ack-and-a-half-arguments
+          (append saved-arguments
+                  (-map
+                   (lambda (path)
+                     (concat "--ignore-dir=" (file-name-nondirectory (directory-file-name path))))
+                   (projectile-ignored-directories)))))
     (call-interactively projectile-ack-function)))
 
 (defun projectile-ag (regexp)
@@ -1026,9 +1029,14 @@ With a prefix argument ARG prompts you for a directory on which to run the repla
   (dired (projectile-project-root)))
 
 (defun projectile-vc-dir ()
-  "Open `vc-dir' at the root of the project."
+  "Open `vc-dir' at the root of the project.
+
+For git projects `magit-status' is used if available."
   (interactive)
-  (vc-dir (projectile-project-root)))
+  (cond
+   ((and (eq (projectile-project-vcs) 'git) (fboundp 'magit-status))
+    (magit-status (projectile-project-root)))
+   (t (vc-dir (projectile-project-root)))))
 
 (defun projectile-recentf ()
   "Show a list of recently visited files in a project."
